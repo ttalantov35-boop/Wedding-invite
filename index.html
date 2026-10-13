@@ -156,24 +156,53 @@
   </footer>
 
   <script>
-    // Музыка запускается по нажатию: браузеры блокируют автозапуск звука.
+    // Пытаемся запустить музыку сразу. Если встроенный браузер WhatsApp
+    // запрещает автозапуск, запускаем её при первом касании/нажатии гостя.
     const music = document.getElementById('weddingMusic');
     const musicToggle = document.getElementById('musicToggle');
 
+    function showMusicPlaying(isPlaying) {
+      musicToggle.textContent = isPlaying ? '♫ Музыканы өчүрүүңүз' : '♫ Музыка коюнуз';
+      musicToggle.setAttribute('aria-pressed', String(isPlaying));
+    }
+
+    async function tryStartMusic() {
+      if (!music.paused) return true;
+      try {
+        await music.play();
+        showMusicPlaying(true);
+        document.removeEventListener('pointerdown', onFirstInteraction, true);
+        document.removeEventListener('touchstart', onFirstInteraction, true);
+        document.removeEventListener('keydown', onFirstInteraction, true);
+        return true;
+      } catch (error) {
+        // Ничего не показываем: попробуем ещё раз при следующем действии гостя.
+        return false;
+      }
+    }
+
+    function onFirstInteraction(event) {
+      // Не обрабатываем кнопку музыки здесь: её собственный обработчик переключает звук.
+      if (event.target && event.target.closest && event.target.closest('#musicToggle')) return;
+      tryStartMusic();
+    }
+
+    // Автозапуск сработает только в браузерах/условиях, где это разрешено.
+    tryStartMusic();
+    document.addEventListener('pointerdown', onFirstInteraction, true);
+    document.addEventListener('touchstart', onFirstInteraction, { capture: true, passive: true });
+    document.addEventListener('keydown', onFirstInteraction, true);
+
     musicToggle.addEventListener('click', async () => {
       if (music.paused) {
-        try {
-          await music.play();
-          musicToggle.textContent = '♫ Музыканы өчүрүүңүз';
-          musicToggle.setAttribute('aria-pressed', 'true');
-        } catch (error) {
-          musicToggle.textContent = 'Музыка табылган жок music.mp3';
+        const started = await tryStartMusic();
+        if (!started) {
+          musicToggle.textContent = 'Добавьте music.mp3';
           alert('Салып файлды music.mp3 ушул эле папкага, index.html, кайра иштетиниз.');
         }
       } else {
         music.pause();
-        musicToggle.textContent = '♫ Музыка коюнуз';
-        musicToggle.setAttribute('aria-pressed', 'false');
+        showMusicPlaying(false);
       }
     });
 
